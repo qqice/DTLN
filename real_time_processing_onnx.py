@@ -26,7 +26,7 @@ import onnxruntime
 block_len = 512
 block_shift = 128
 # load models
-interpreter_1 = onnxruntime.InferenceSession('./model_1.onnx')
+interpreter_1 = onnxruntime.InferenceSession('./pretrained_model/model_1.onnx')
 model_input_names_1 = [inp.name for inp in interpreter_1.get_inputs()]
 # preallocate input
 model_inputs_1 = {
@@ -35,7 +35,7 @@ model_inputs_1 = {
                 dtype=np.float32)
             for inp in interpreter_1.get_inputs()}
 # load models
-interpreter_2 = onnxruntime.InferenceSession('./model_2.onnx')
+interpreter_2 = onnxruntime.InferenceSession('./pretrained_model/model_2.onnx')
 model_input_names_2 = [inp.name for inp in interpreter_2.get_inputs()]
 # preallocate input
 model_inputs_2 = {
