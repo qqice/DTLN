@@ -4,7 +4,7 @@ import time
 #import onnxruntime
 from rknnlite.api import RKNNLite
 #from rknn.api import RKNN
-
+#############################################################################################
 model_inputs_1 = [np.zeros([1,1,257],dtype=np.float32), np.zeros([1,2,128,2],dtype=np.float32)]
 model_inputs_2 = [np.zeros([1,1,512],dtype=np.float32), np.zeros([1,2,128,2],dtype=np.float32)]
 def init_rknn_model(model_path, target, device_id):
@@ -29,15 +29,17 @@ def init_rknn_model(model_path, target, device_id):
 
     return rknn
 
+# load models
+interpreter_1 = init_rknn_model('./pretrained_model/model_1.rknn', 'rk3588', None)
+# load models
+interpreter_2 = init_rknn_model('./pretrained_model/model_2.rknn', 'rk3588', None)
+#############################################################################################
+
 ##########################
 # the values are fixed, if you need other values, you have to retrain.
 # The sampling rate of 16k is also fix.
 block_len = 512
 block_shift = 128
-# load models
-interpreter_1 = init_rknn_model('./pretrained_model/model_1.rknn', 'rk3588', None)
-# load models
-interpreter_2 = init_rknn_model('./pretrained_model/model_2.rknn', 'rk3588', None)
 
 # load audio file
 audio,fs = sf.read('./audioset_realrec_airconditioner_2TE3LoA2OUQ.wav')
@@ -66,8 +68,10 @@ for idx in range(num_blocks):
     in_mag = np.reshape(in_mag, (1,1,-1)).astype('float32')
     # set block to input
     model_inputs_1[0] = in_mag
-    # run calculation 
+    # run calculation
+    #############################################################################################
     model_outputs_1 = interpreter_1.inference(inputs=model_inputs_1)
+    #############################################################################################
     # get the output of the first block
     out_mask = model_outputs_1[0]
     # set out states back to input
@@ -81,7 +85,9 @@ for idx in range(num_blocks):
     # interpreter_2.set_tensor(input_details_1[1]['index'], states_2)
     model_inputs_2[0] = estimated_block
     # run calculation
+    #############################################################################################
     model_outputs_2 = interpreter_2.inference(inputs=model_inputs_2)
+    #############################################################################################
     # get output
     out_block = model_outputs_2[0]
     # set out states back to input
