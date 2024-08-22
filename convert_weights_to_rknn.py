@@ -29,6 +29,12 @@ if __name__ == '__main__':
         exit(ret)
     print('done')
 
+    print('--> Accuracy analysis')
+    ret = rknn.accuracy_analysis(inputs=['input_3.npy','input_4.npy'])
+    if ret != 0:
+        print('acc_analysis failed!')
+        exit(ret)
+    print('done')
     # Export RKNN model
     print('--> Export rknn model')
     ret = rknn.export_rknn(RKNN_MODEL)

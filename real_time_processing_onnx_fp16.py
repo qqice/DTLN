@@ -26,22 +26,22 @@ import onnxruntime
 block_len = 512
 block_shift = 128
 # load models
-interpreter_1 = onnxruntime.InferenceSession('./pretrained_model/model_1.onnx',providers=['CPUExecutionProvider'])
+interpreter_1 = onnxruntime.InferenceSession('./pretrained_model/model_1_fp16.onnx',providers=['CPUExecutionProvider'])
 model_input_names_1 = [inp.name for inp in interpreter_1.get_inputs()]
 # preallocate input
 model_inputs_1 = {
             inp.name: np.zeros(
                 [dim if isinstance(dim, int) else 1 for dim in inp.shape],
-                dtype=np.float32)
+                dtype=np.float16)
             for inp in interpreter_1.get_inputs()}
 # load models
-interpreter_2 = onnxruntime.InferenceSession('./pretrained_model/model_2.onnx',providers=['CPUExecutionProvider'])
+interpreter_2 = onnxruntime.InferenceSession('./pretrained_model/model_2_fp16.onnx',providers=['CPUExecutionProvider'])
 model_input_names_2 = [inp.name for inp in interpreter_2.get_inputs()]
 # preallocate input
 model_inputs_2 = {
             inp.name: np.zeros(
                 [dim if isinstance(dim, int) else 1 for dim in inp.shape],
-                dtype=np.float32)
+                dtype=np.float16)
             for inp in interpreter_2.get_inputs()}
 
 # load audio file
@@ -52,8 +52,8 @@ if fs != 16000:
 # preallocate output audio
 out_file = np.zeros((len(audio)))
 # create buffer
-in_buffer = np.zeros((block_len)).astype('float32')
-out_buffer = np.zeros((block_len)).astype('float32')
+in_buffer = np.zeros((block_len)).astype('float16')
+out_buffer = np.zeros((block_len)).astype('float16')
 # calculate number of blocks
 num_blocks = (audio.shape[0] - (block_len-block_shift)) // block_shift
 # iterate over the number of blcoks  
@@ -68,11 +68,11 @@ for idx in range(num_blocks):
     in_mag = np.abs(in_block_fft)
     in_phase = np.angle(in_block_fft)
     # reshape magnitude to input dimensions
-    in_mag = np.reshape(in_mag, (1,1,-1)).astype('float32')
+    in_mag = np.reshape(in_mag, (1,1,-1)).astype('float16')
     # set block to input
     model_inputs_1[model_input_names_1[0]] = in_mag
     # save input_1 to npy
-    np.save('input_1.npy', in_mag)
+    # np.save('input_1.npy', in_mag)
     # run calculation 
     model_outputs_1 = interpreter_1.run(None, model_inputs_1)
     # get the output of the first block
@@ -80,17 +80,17 @@ for idx in range(num_blocks):
     # set out states back to input
     model_inputs_1[model_input_names_1[1]] = model_outputs_1[1]
     # save input_2 to npy
-    np.save('input_2.npy', model_inputs_1[model_input_names_1[1]])
+    # np.save('input_2.npy', model_inputs_1[model_input_names_1[1]])
     # calculate the ifft
     estimated_complex = in_mag * out_mask * np.exp(1j * in_phase)
     estimated_block = np.fft.irfft(estimated_complex)
     # reshape the time domain block
-    estimated_block = np.reshape(estimated_block, (1,1,-1)).astype('float32')
+    estimated_block = np.reshape(estimated_block, (1,1,-1)).astype('float16')
     # set tensors to the second block
     # interpreter_2.set_tensor(input_details_1[1]['index'], states_2)
     model_inputs_2[model_input_names_2[0]] = estimated_block
     # save input_3 to npy
-    np.save('input_3.npy', estimated_block)
+    # np.save('input_3.npy', estimated_block)
     # run calculation
     model_outputs_2 = interpreter_2.run(None, model_inputs_2)
     # get output
@@ -98,7 +98,7 @@ for idx in range(num_blocks):
     # set out states back to input
     model_inputs_2[model_input_names_2[1]] = model_outputs_2[1]
     # save inputs_4 to npy
-    np.save('input_4.npy', model_inputs_2[model_input_names_2[1]])
+    # np.save('input_4.npy', model_inputs_2[model_input_names_2[1]])
     # shift values and write to buffer
     out_buffer[:-block_shift] = out_buffer[block_shift:]
     out_buffer[-block_shift:] = np.zeros((block_shift))

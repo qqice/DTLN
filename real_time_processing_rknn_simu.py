@@ -1,24 +1,45 @@
-"""
-This is an example how to implement real time processing of the DTLN ONNX
-model in python.
-
-Please change the name of the .wav file at line 49 before running the sript.
-For the ONNX runtime call: $ pip install onnxruntime
-    
-    
-
-Author: Nils L. Westhausen (nils.westhausen@uol.de)
-Version: 03.07.2020
-
-This code is licensed under the terms of the MIT-license.
-"""
-
 import soundfile as sf
 import numpy as np
 import time
-import onnxruntime
+#import onnxruntime
+#from rknnlite.api import RKNNLite
+from rknn.api import RKNN
 
+model_inputs_1 = [np.zeros([1,1,257],dtype=np.float32), np.zeros([1,2,128,2],dtype=np.float32)]
+model_inputs_2 = [np.zeros([1,1,512],dtype=np.float32), np.zeros([1,2,128,2],dtype=np.float32)]
+def init_rknn_model(model_path, target, device_id):
+    # Create RKNN object
+    rknn = RKNN(verbose=True)
 
+    print('--> Config model')
+    rknn.config(target_platform='rk3588')
+    print('done')
+
+    # Load ONNX model
+    print('--> Loading model')
+    ret = rknn.load_onnx(model=model_path)
+    if ret != 0:
+        print('Load model failed!')
+        exit(ret)
+    print('done')
+
+    # Build model
+    print('--> Building model')
+    ret = rknn.build(do_quantization=False)
+    if ret != 0:
+        print('Build model failed!')
+        exit(ret)
+    print('done')
+
+    # init runtime environment
+    print('--> Init runtime environment')
+    ret = rknn.init_runtime()
+    if ret != 0:
+        print('Init runtime environment failed')
+        exit(ret)
+    print('done')
+
+    return rknn
 
 ##########################
 # the values are fixed, if you need other values, you have to retrain.
@@ -26,23 +47,9 @@ import onnxruntime
 block_len = 512
 block_shift = 128
 # load models
-interpreter_1 = onnxruntime.InferenceSession('./pretrained_model/model_1.onnx',providers=['CPUExecutionProvider'])
-model_input_names_1 = [inp.name for inp in interpreter_1.get_inputs()]
-# preallocate input
-model_inputs_1 = {
-            inp.name: np.zeros(
-                [dim if isinstance(dim, int) else 1 for dim in inp.shape],
-                dtype=np.float32)
-            for inp in interpreter_1.get_inputs()}
+interpreter_1 = init_rknn_model('./pretrained_model/model_1.onnx', 'rk3588', None)
 # load models
-interpreter_2 = onnxruntime.InferenceSession('./pretrained_model/model_2.onnx',providers=['CPUExecutionProvider'])
-model_input_names_2 = [inp.name for inp in interpreter_2.get_inputs()]
-# preallocate input
-model_inputs_2 = {
-            inp.name: np.zeros(
-                [dim if isinstance(dim, int) else 1 for dim in inp.shape],
-                dtype=np.float32)
-            for inp in interpreter_2.get_inputs()}
+interpreter_2 = init_rknn_model('./pretrained_model/model_2.onnx', 'rk3588', None)
 
 # load audio file
 audio,fs = sf.read('./audioset_realrec_airconditioner_2TE3LoA2OUQ.wav')
@@ -70,17 +77,13 @@ for idx in range(num_blocks):
     # reshape magnitude to input dimensions
     in_mag = np.reshape(in_mag, (1,1,-1)).astype('float32')
     # set block to input
-    model_inputs_1[model_input_names_1[0]] = in_mag
-    # save input_1 to npy
-    np.save('input_1.npy', in_mag)
+    model_inputs_1[0] = in_mag
     # run calculation 
-    model_outputs_1 = interpreter_1.run(None, model_inputs_1)
+    model_outputs_1 = interpreter_1.inference(inputs=model_inputs_1,data_format='NCHW')
     # get the output of the first block
     out_mask = model_outputs_1[0]
     # set out states back to input
-    model_inputs_1[model_input_names_1[1]] = model_outputs_1[1]
-    # save input_2 to npy
-    np.save('input_2.npy', model_inputs_1[model_input_names_1[1]])
+    model_inputs_1[1] = model_outputs_1[1]  
     # calculate the ifft
     estimated_complex = in_mag * out_mask * np.exp(1j * in_phase)
     estimated_block = np.fft.irfft(estimated_complex)
@@ -88,17 +91,13 @@ for idx in range(num_blocks):
     estimated_block = np.reshape(estimated_block, (1,1,-1)).astype('float32')
     # set tensors to the second block
     # interpreter_2.set_tensor(input_details_1[1]['index'], states_2)
-    model_inputs_2[model_input_names_2[0]] = estimated_block
-    # save input_3 to npy
-    np.save('input_3.npy', estimated_block)
+    model_inputs_2[0] = estimated_block
     # run calculation
-    model_outputs_2 = interpreter_2.run(None, model_inputs_2)
+    model_outputs_2 = interpreter_2.inference(inputs=model_inputs_2,data_format='NCHW')
     # get output
     out_block = model_outputs_2[0]
     # set out states back to input
-    model_inputs_2[model_input_names_2[1]] = model_outputs_2[1]
-    # save inputs_4 to npy
-    np.save('input_4.npy', model_inputs_2[model_input_names_2[1]])
+    model_inputs_2[1] = model_outputs_2[1]
     # shift values and write to buffer
     out_buffer[:-block_shift] = out_buffer[block_shift:]
     out_buffer[-block_shift:] = np.zeros((block_shift))
