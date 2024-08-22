@@ -1,15 +1,8 @@
-import os
-import urllib
-import traceback
-import time
-import sys
-import numpy as np
-import cv2
 from rknn.api import RKNN
 
-ONNX_MODEL = 'model_2.onnx'
+ONNX_MODEL = './pretrained_model/model_2.onnx'
 
-RKNN_MODEL = 'model_2.rknn'
+RKNN_MODEL = './pretrained_model/model_2.rknn'
 
 QUANTIZE_ON = False
 
